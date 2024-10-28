@@ -10,7 +10,7 @@ pip install cryptography argparse
 pip install pyvirtualdisplay
 ```
 
-## Features
+## Features:
 
 **1. Main Script:** Manages user inputs, generates passwords, checks strength, and handles storage.
 
