@@ -8,6 +8,15 @@ from cryptography.fernet import Fernet
 import tkinter as tk
 from tkinter import messagebox, filedialog
 
+# Show Disclaimer on Start
+def show_disclaimer():
+    messagebox.showinfo(
+        "Disclaimer",
+        "This project is for personal self-learning and experimentation with Python and encryption techniques.\n"
+        "It is not intended for real-world use, as it may lack advanced security features.\n"
+        "Please use professional password management tools for sensitive information."
+    )
+
 # Generate or load encryption key
 KEY_FILE = 'key.key'
 DATA_FILE = 'passwords.json'
@@ -176,5 +185,8 @@ class PasswordManagerGUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.withdraw()  # Hide the main window initially
+    show_disclaimer()  # Show disclaimer pop-up
+    root.deiconify()  # Show the main window after the disclaimer
     app = PasswordManagerGUI(root)
     root.mainloop()
