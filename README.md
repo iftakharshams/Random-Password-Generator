@@ -4,6 +4,9 @@
 
 ```
 pip install cryptography argparse
+```
+
+```
 pip install pyvirtualdisplay
 ```
 
@@ -15,4 +18,4 @@ pip install pyvirtualdisplay
 **4. Expiration Reminder:** Checks for expired passwords and prompts users to update them.\
 **5. GUI with Tkinter:** A graphical interface for easy interaction.\
 **6. Password Reuse Checker:** Ensures the generated password has not been used for other accounts.\
-**7. Export passwords to CSV:** Allows exporting stored passwords to a CSV file for backup purposes.\
+**7. Export passwords to CSV:** Allows exporting stored passwords to a CSV file for backup purposes.
