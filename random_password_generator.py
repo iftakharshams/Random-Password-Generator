@@ -3,8 +3,10 @@ import string
 import json
 import os
 import datetime
+import csv
 from cryptography.fernet import Fernet
-import argparse
+import tkinter as tk
+from tkinter import messagebox, filedialog
 
 # Generate or load encryption key
 KEY_FILE = 'key.key'
@@ -54,6 +56,16 @@ def check_password_strength(password):
     else:
         return "Weak"
 
+# Check for Reused Password
+def is_password_reused(password):
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as file:
+            data = json.load(file)
+        for account in data.values():
+            if fernet.decrypt(account['password'].encode()).decode() == password:
+                return True
+    return False
+
 # Save Password with Encryption
 def save_password(account, password):
     encrypted_password = fernet.encrypt(password.encode()).decode()
@@ -82,66 +94,87 @@ def retrieve_password(account):
             return decrypted_password, expiration_date
     return None, None
 
-# Check Expiration
-def check_expiration(account):
-    password, expiration = retrieve_password(account)
-    if expiration:
-        expiration_date = datetime.datetime.fromisoformat(expiration)
-        if expiration_date < datetime.datetime.now():
-            print(f"[ALERT] Password for {account} has expired! Consider updating.")
-        else:
-            print(f"Password for {account} is valid until {expiration_date.strftime('%Y-%m-%d')}")
+# Export Passwords to CSV
+def export_passwords():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r') as file:
+            data = json.load(file)
+        file_path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv")])
+        if file_path:
+            with open(file_path, 'w', newline='') as csvfile:
+                fieldnames = ['Account', 'Password', 'Expiration Date']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                for account, info in data.items():
+                    decrypted_password = fernet.decrypt(info['password'].encode()).decode()
+                    writer.writerow({'Account': account, 'Password': decrypted_password, 'Expiration Date': info['expiration']})
+            messagebox.showinfo("Export Success", "Passwords exported successfully.")
     else:
-        print(f"No expiration found for account: {account}")
+        messagebox.showerror("Export Error", "No passwords to export.")
 
-# Command-line Interface
-def main():
-    parser = argparse.ArgumentParser(description="Secure Password Generator with Strength Checker and Expiration Reminder")
-    parser.add_argument("-g", "--generate", help="Generate a new password", action="store_true")
-    parser.add_argument("-l", "--length", type=int, default=12, help="Password length")
-    parser.add_argument("-a", "--account", type=str, help="Account name for storing/retrieving password")
-    parser.add_argument("--no-upper", action="store_false", help="Exclude uppercase letters")
-    parser.add_argument("--no-lower", action="store_false", help="Exclude lowercase letters")
-    parser.add_argument("--no-digits", action="store_false", help="Exclude digits")
-    parser.add_argument("--no-symbols", action="store_false", help="Exclude symbols")
-    parser.add_argument("-r", "--retrieve", help="Retrieve an existing password", action="store_true")
-    parser.add_argument("-c", "--check", help="Check password expiration", action="store_true")
+# GUI Setup
+class PasswordManagerGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Secure Password Manager")
 
-    args = parser.parse_args()
+        # GUI Elements
+        tk.Label(root, text="Account").grid(row=0, column=0, padx=10, pady=5)
+        tk.Label(root, text="Length").grid(row=1, column=0, padx=10, pady=5)
+        self.account_entry = tk.Entry(root)
+        self.account_entry.grid(row=0, column=1)
 
-    if args.generate:
-        try:
-            password = generate_password(
-                length=args.length,
-                include_upper=args.no_upper,
-                include_lower=args.no_lower,
-                include_digits=args.no_digits,
-                include_symbols=args.no_symbols,
-            )
-            print(f"Generated Password: {password}")
-            print("Strength:", check_password_strength(password))
+        self.length_entry = tk.Entry(root)
+        self.length_entry.insert(0, "12")
+        self.length_entry.grid(row=1, column=1)
 
-            if args.account:
-                save_password(args.account, password)
-                print(f"Password saved for account: {args.account}")
+        self.upper_var = tk.BooleanVar(value=True)
+        self.lower_var = tk.BooleanVar(value=True)
+        self.digits_var = tk.BooleanVar(value=True)
+        self.symbols_var = tk.BooleanVar(value=True)
+        
+        tk.Checkbutton(root, text="Uppercase", variable=self.upper_var).grid(row=2, column=0, sticky="w")
+        tk.Checkbutton(root, text="Lowercase", variable=self.lower_var).grid(row=2, column=1, sticky="w")
+        tk.Checkbutton(root, text="Digits", variable=self.digits_var).grid(row=3, column=0, sticky="w")
+        tk.Checkbutton(root, text="Symbols", variable=self.symbols_var).grid(row=3, column=1, sticky="w")
+        
+        self.generate_button = tk.Button(root, text="Generate Password", command=self.generate_password)
+        self.generate_button.grid(row=4, column=0, columnspan=2, pady=10)
 
-        except ValueError as e:
-            print(e)
+        self.save_button = tk.Button(root, text="Save Password", command=self.save_password)
+        self.save_button.grid(row=5, column=0, columnspan=2, pady=5)
 
-    elif args.retrieve:
-        if args.account:
-            password, expiration = retrieve_password(args.account)
-            if password:
-                print(f"Password for {args.account}: {password}")
-                print(f"Expires on: {expiration}")
-            else:
-                print("Account not found")
+        self.export_button = tk.Button(root, text="Export to CSV", command=export_passwords)
+        self.export_button.grid(row=6, column=0, columnspan=2, pady=5)
 
-    elif args.check:
-        if args.account:
-            check_expiration(args.account)
+        self.password_display = tk.Label(root, text="", font=("Arial", 12), wraplength=250)
+        self.password_display.grid(row=7, column=0, columnspan=2, pady=10)
+
+    def generate_password(self):
+        length = int(self.length_entry.get())
+        include_upper = self.upper_var.get()
+        include_lower = self.lower_var.get()
+        include_digits = self.digits_var.get()
+        include_symbols = self.symbols_var.get()
+
+        password = generate_password(length, include_upper, include_lower, include_digits, include_symbols)
+        
+        if is_password_reused(password):
+            self.password_display.config(text="Password is reused, try regenerating!")
         else:
-            print("Please specify an account to check expiration")
+            self.password_display.config(text=f"Generated Password: {password}\nStrength: {check_password_strength(password)}")
+
+    def save_password(self):
+        account = self.account_entry.get()
+        password_text = self.password_display.cget("text").split("Generated Password: ")[-1].split("\n")[0]
+
+        if account and password_text:
+            save_password(account, password_text)
+            messagebox.showinfo("Save Success", f"Password for '{account}' saved successfully.")
+        else:
+            messagebox.showerror("Save Error", "Please provide an account name and generate a password first.")
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = PasswordManagerGUI(root)
+    root.mainloop()
